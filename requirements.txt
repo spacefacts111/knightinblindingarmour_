@@ -1,0 +1,8 @@
+instagrapi
+diffusers
+torch
+transformers
+Pillow
+ffmpeg-python
+gpt4all
+requests
