@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from datetime import datetime
 from instagrapi import Client
 from PIL import Image
@@ -7,7 +8,6 @@ from diffusers import StableDiffusionPipeline
 import torch
 import subprocess
 import random
-import json
 from gpt4all import GPT4All
 import requests
 
@@ -16,23 +16,25 @@ VIDEO_FILE = "final_video.mp4"
 IMAGE_FILE = "ai_image.png"
 MUSIC_FILE = "ai_music.wav"
 CAPTIONS_MODEL = "ggml-gpt4all-j-v1.3-groovy"
-POST_SCHEDULE = 86400  # 1 post per 24 hours
-
-# ===== LOGIN =====
-IG_USERNAME = os.getenv("IG_USERNAME")
-IG_PASSWORD = os.getenv("IG_PASSWORD")
+POST_SCHEDULE = 86400  # 1 post every 24 hours
 
 cl = Client()
-session_file = "session.json"
 
+# ===== LOGIN (COOKIE SESSION METHOD) =====
 def ig_login():
-    if os.path.exists(session_file):
-        cl.load_settings(session_file)
-        cl.login(IG_USERNAME, IG_PASSWORD)
+    if os.path.exists("session.json"):
+        print("✅ Loading Instagram session from cookies...")
+        with open("session.json", "r") as f:
+            cookies = json.load(f)
+        try:
+            cl.login_by_sessionid(cookies["sessionid"])
+            print("✅ Session loaded successfully! (No login challenge)")
+        except Exception as e:
+            print(f"❌ Failed to load session: {e}")
+            exit()
     else:
-        cl.login(IG_USERNAME, IG_PASSWORD)
-        cl.dump_settings(session_file)
-    print("✅ Logged in to Instagram")
+        print("❌ No session.json found! Please export your cookies (sessionid, csrftoken, ds_user_id).")
+        exit()
 
 # ===== AI IMAGE GENERATION (Stable Diffusion) =====
 def generate_ai_image(prompt="sad romantic poetry, soft lighting, emotional vibe"):
@@ -44,10 +46,9 @@ def generate_ai_image(prompt="sad romantic poetry, soft lighting, emotional vibe
     image.save(IMAGE_FILE)
     print("✅ Image saved:", IMAGE_FILE)
 
-# ===== AI MUSIC GENERATION (Riffusion) =====
+# ===== AI MUSIC GENERATION (Free Riffusion Samples) =====
 def generate_ai_music():
     print("🎵 Generating AI music...")
-    # Simple hack: pull a free Riffusion-generated sample (no paid API)
     url = random.choice([
         "https://cdn.pixabay.com/download/audio/2023/01/26/audio_d29cb9bce2.mp3",
         "https://cdn.pixabay.com/download/audio/2023/01/27/audio_37c6f542b1.mp3"
@@ -85,7 +86,7 @@ def generate_caption():
 def post_instagram(video_file, caption):
     print("📤 Posting to Instagram...")
     cl.clip_upload(video_file, caption)
-    print("✅ Test post published successfully!")
+    print("✅ Post published successfully!")
 
 # ===== MAIN BOT LOGIC =====
 def run_once():
