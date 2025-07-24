@@ -14,7 +14,7 @@ POST_SCHEDULE = 86400  # 1 post every 24 hours
 
 cl = Client()
 
-# ===== LOGIN (COOKIE SESSION METHOD ONLY) =====
+# ===== LOGIN (COOKIES ONLY) =====
 def ig_login():
     if os.path.exists("session.json"):
         print("✅ Loading Instagram session from cookies...")
@@ -27,13 +27,13 @@ def ig_login():
             print(f"❌ Failed to load session: {e}")
             exit()
     else:
-        print("❌ No session.json found! Please export your cookies (sessionid, csrftoken, ds_user_id).")
+        print("❌ No session.json found! Create one with your IG cookies.")
         exit()
 
-# ===== IMAGE FETCH (Free Dark Poetic Images) =====
-def generate_ai_image():
-    print("🎨 Fetching sad/poetic image...")
-    keywords = ["sad", "lonely", "moody", "rain", "poetic", "love"]
+# ===== FETCH SAD/POETIC IMAGE =====
+def generate_image():
+    print("🎨 Fetching image...")
+    keywords = ["sad", "poetic", "love", "lonely", "heartbreak", "rain"]
     query = random.choice(keywords)
     url = f"https://source.unsplash.com/1080x1920/?{query}"
     r = requests.get(url)
@@ -41,9 +41,9 @@ def generate_ai_image():
         f.write(r.content)
     print(f"✅ Image saved: {IMAGE_FILE}")
 
-# ===== MUSIC GENERATION (Free Samples) =====
-def generate_ai_music():
-    print("🎵 Downloading AI music sample...")
+# ===== MUSIC DOWNLOAD =====
+def generate_music():
+    print("🎵 Downloading music...")
     url = random.choice([
         "https://cdn.pixabay.com/download/audio/2023/01/26/audio_d29cb9bce2.mp3",
         "https://cdn.pixabay.com/download/audio/2023/01/27/audio_37c6f542b1.mp3"
@@ -51,9 +51,9 @@ def generate_ai_music():
     r = requests.get(url)
     with open(MUSIC_FILE, "wb") as f:
         f.write(r.content)
-    print("✅ Music saved:", MUSIC_FILE)
+    print(f"✅ Music saved: {MUSIC_FILE}")
 
-# ===== VIDEO CREATION (FFmpeg) =====
+# ===== CREATE VIDEO =====
 def create_video():
     print("🎬 Creating video...")
     cmd = [
@@ -67,24 +67,24 @@ def create_video():
         VIDEO_FILE
     ]
     subprocess.run(cmd)
-    print("✅ Video created:", VIDEO_FILE)
+    print(f"✅ Video created: {VIDEO_FILE}")
 
-# ===== CAPTION + HASHTAG GENERATION (Lightweight Built-In) =====
+# ===== CAPTION + HASHTAG GENERATION (IMPROVED) =====
 def generate_caption():
     captions = [
         "i talk to the moon because you stopped listening",
         "hearts don’t break, they just keep beating with cracks inside",
         "sometimes loving means letting go, even if it kills you",
         "your ghost sleeps in my bed and i still make room for it",
-        "the nights feel longer when you miss someone you can’t have"
+        "the nights feel longer when you miss someone you can’t have",
+        "she left, but her perfume stayed in my lungs",
+        "his smile was the saddest thing i ever loved"
     ]
     hashtags = [
         "#sadquotes", "#brokenhearts", "#poetic", "#lonely", "#lovehurts",
-        "#deepsadness", "#romanticvibes", "#heartbreak"
+        "#deepsadness", "#romanticvibes", "#heartbreak", "#lostlove", "#relatable"
     ]
-    caption = random.choice(captions) + "\n\n" + " ".join(random.sample(hashtags, 5))
-    print("✍️ Generated caption:", caption)
-    return caption
+    return random.choice(captions) + "\n\n" + " ".join(random.sample(hashtags, 6))
 
 # ===== POST TO INSTAGRAM =====
 def post_instagram(video_file, caption):
@@ -92,10 +92,10 @@ def post_instagram(video_file, caption):
     cl.clip_upload(video_file, caption)
     print("✅ Post published successfully!")
 
-# ===== MAIN BOT LOGIC =====
+# ===== BOT LOGIC =====
 def run_once():
-    generate_ai_image()
-    generate_ai_music()
+    generate_image()
+    generate_music()
     create_video()
     caption = generate_caption()
     post_instagram(VIDEO_FILE, caption)
