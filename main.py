@@ -2,19 +2,14 @@ import os
 import time
 import json
 import subprocess
-from instagrapi import Client
-from PIL import Image
-from diffusers import StableDiffusionPipeline
-import torch
 import random
-from gpt4all import GPT4All
 import requests
+from instagrapi import Client
 
 # ===== CONFIG =====
 VIDEO_FILE = "final_video.mp4"
-IMAGE_FILE = "ai_image.png"
-MUSIC_FILE = "ai_music.wav"
-CAPTIONS_MODEL = "ggml-gpt4all-j-v1.3-groovy"
+IMAGE_FILE = "ai_image.jpg"
+MUSIC_FILE = "ai_music.mp3"
 POST_SCHEDULE = 86400  # 1 post every 24 hours
 
 cl = Client()
@@ -35,24 +30,20 @@ def ig_login():
         print("❌ No session.json found! Please export your cookies (sessionid, csrftoken, ds_user_id).")
         exit()
 
-# ===== INSTALL CHECK (Ensures Heavy Packages Installed on First Run) =====
-def ensure_dependencies():
-    print("🔄 Checking and installing heavy dependencies (only first run)...")
-    os.system("pip install torch diffusers gpt4all")
+# ===== IMAGE FETCH (Free Dark Poetic Images) =====
+def generate_ai_image():
+    print("🎨 Fetching sad/poetic image...")
+    keywords = ["sad", "lonely", "moody", "rain", "poetic", "love"]
+    query = random.choice(keywords)
+    url = f"https://source.unsplash.com/1080x1920/?{query}"
+    r = requests.get(url)
+    with open(IMAGE_FILE, "wb") as f:
+        f.write(r.content)
+    print(f"✅ Image saved: {IMAGE_FILE}")
 
-# ===== AI IMAGE GENERATION (Stable Diffusion) =====
-def generate_ai_image(prompt="sad romantic poetry, soft lighting, emotional vibe"):
-    print("🎨 Generating AI image...")
-    pipe = StableDiffusionPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", torch_dtype=torch.float32
-    )
-    image = pipe(prompt).images[0]
-    image.save(IMAGE_FILE)
-    print("✅ Image saved:", IMAGE_FILE)
-
-# ===== AI MUSIC GENERATION (Free Riffusion Samples) =====
+# ===== MUSIC GENERATION (Free Samples) =====
 def generate_ai_music():
-    print("🎵 Generating AI music...")
+    print("🎵 Downloading AI music sample...")
     url = random.choice([
         "https://cdn.pixabay.com/download/audio/2023/01/26/audio_d29cb9bce2.mp3",
         "https://cdn.pixabay.com/download/audio/2023/01/27/audio_37c6f542b1.mp3"
@@ -78,13 +69,22 @@ def create_video():
     subprocess.run(cmd)
     print("✅ Video created:", VIDEO_FILE)
 
-# ===== CAPTION + HASHTAG GENERATION (PURE GPT4All) =====
+# ===== CAPTION + HASHTAG GENERATION (Lightweight Built-In) =====
 def generate_caption():
-    print("✍️ Generating caption...")
-    model = GPT4All(CAPTIONS_MODEL)
-    prompt = "Write me a short, sad, poetic, romantic Instagram caption with 5-10 popular sad or romantic hashtags."
-    output = model.generate(prompt, max_tokens=60)
-    return output.strip()
+    captions = [
+        "i talk to the moon because you stopped listening",
+        "hearts don’t break, they just keep beating with cracks inside",
+        "sometimes loving means letting go, even if it kills you",
+        "your ghost sleeps in my bed and i still make room for it",
+        "the nights feel longer when you miss someone you can’t have"
+    ]
+    hashtags = [
+        "#sadquotes", "#brokenhearts", "#poetic", "#lonely", "#lovehurts",
+        "#deepsadness", "#romanticvibes", "#heartbreak"
+    ]
+    caption = random.choice(captions) + "\n\n" + " ".join(random.sample(hashtags, 5))
+    print("✍️ Generated caption:", caption)
+    return caption
 
 # ===== POST TO INSTAGRAM =====
 def post_instagram(video_file, caption):
@@ -107,7 +107,6 @@ def run_forever():
         time.sleep(POST_SCHEDULE)
 
 if __name__ == "__main__":
-    ensure_dependencies()
     ig_login()
     print("🚀 Running one-time test post immediately...")
     run_once()
