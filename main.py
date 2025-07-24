@@ -1,11 +1,11 @@
 import os
 import time
 import json
+import subprocess
 from instagrapi import Client
 from PIL import Image
 from diffusers import StableDiffusionPipeline
 import torch
-import subprocess
 import random
 from gpt4all import GPT4All
 import requests
@@ -34,6 +34,11 @@ def ig_login():
     else:
         print("❌ No session.json found! Please export your cookies (sessionid, csrftoken, ds_user_id).")
         exit()
+
+# ===== INSTALL CHECK (Ensures Heavy Packages Installed on First Run) =====
+def ensure_dependencies():
+    print("🔄 Checking and installing heavy dependencies (only first run)...")
+    os.system("pip install torch diffusers gpt4all")
 
 # ===== AI IMAGE GENERATION (Stable Diffusion) =====
 def generate_ai_image(prompt="sad romantic poetry, soft lighting, emotional vibe"):
@@ -102,6 +107,7 @@ def run_forever():
         time.sleep(POST_SCHEDULE)
 
 if __name__ == "__main__":
+    ensure_dependencies()
     ig_login()
     print("🚀 Running one-time test post immediately...")
     run_once()
