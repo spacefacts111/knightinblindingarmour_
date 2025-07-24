@@ -1,7 +1,6 @@
 import os
 import time
 import json
-from datetime import datetime
 from instagrapi import Client
 from PIL import Image
 from diffusers import StableDiffusionPipeline
@@ -20,7 +19,7 @@ POST_SCHEDULE = 86400  # 1 post every 24 hours
 
 cl = Client()
 
-# ===== LOGIN (COOKIE SESSION METHOD) =====
+# ===== LOGIN (COOKIE SESSION METHOD ONLY) =====
 def ig_login():
     if os.path.exists("session.json"):
         print("✅ Loading Instagram session from cookies...")
@@ -74,12 +73,12 @@ def create_video():
     subprocess.run(cmd)
     print("✅ Video created:", VIDEO_FILE)
 
-# ===== CAPTION + HASHTAG GENERATION =====
+# ===== CAPTION + HASHTAG GENERATION (PURE GPT4All) =====
 def generate_caption():
     print("✍️ Generating caption...")
     model = GPT4All(CAPTIONS_MODEL)
-    prompt = "Write me a short, sad, poetic, romantic Instagram caption with relatable hashtags."
-    output = model.generate(prompt, max_tokens=50)
+    prompt = "Write me a short, sad, poetic, romantic Instagram caption with 5-10 popular sad or romantic hashtags."
+    output = model.generate(prompt, max_tokens=60)
     return output.strip()
 
 # ===== POST TO INSTAGRAM =====
