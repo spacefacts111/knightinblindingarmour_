@@ -5,6 +5,7 @@ import subprocess
 import random
 import requests
 from instagrapi import Client
+from PIL import Image
 
 # ===== CONFIG =====
 VIDEO_FILE = "final_video.mp4"
@@ -30,16 +31,27 @@ def ig_login():
         print("❌ No session.json found! Create one with your IG cookies.")
         exit()
 
-# ===== FETCH SAD/POETIC IMAGE =====
+# ===== FETCH & FIX SAD/POETIC IMAGE =====
 def generate_image():
     print("🎨 Fetching image...")
     keywords = ["sad", "poetic", "love", "lonely", "heartbreak", "rain"]
     query = random.choice(keywords)
     url = f"https://source.unsplash.com/1080x1920/?{query}"
-    r = requests.get(url)
-    with open(IMAGE_FILE, "wb") as f:
-        f.write(r.content)
-    print(f"✅ Image saved: {IMAGE_FILE}")
+    r = requests.get(url, stream=True)
+    temp_file = "temp_image.jpg"
+    with open(temp_file, "wb") as f:
+        for chunk in r.iter_content(1024):
+            f.write(chunk)
+
+    # ✅ Re-save as proper RGB JPEG
+    try:
+        img = Image.open(temp_file).convert("RGB")
+        img.save(IMAGE_FILE, "JPEG")
+        os.remove(temp_file)
+        print(f"✅ Cleaned & saved image: {IMAGE_FILE}")
+    except Exception as e:
+        print(f"❌ Image processing failed: {e}")
+        exit()
 
 # ===== MUSIC DOWNLOAD =====
 def generate_music():
@@ -53,7 +65,7 @@ def generate_music():
         f.write(r.content)
     print(f"✅ Music saved: {MUSIC_FILE}")
 
-# ===== CREATE VIDEO (FIXED ENCODING) =====
+# ===== CREATE VIDEO (FFmpeg Fixed) =====
 def create_video():
     print("🎬 Creating video...")
     cmd = [
@@ -92,10 +104,10 @@ def generate_caption():
     ]
     return random.choice(captions) + "\n\n" + " ".join(random.sample(hashtags, 6))
 
-# ===== POST TO INSTAGRAM (CHECK + DELAY) =====
+# ===== POST TO INSTAGRAM (Check + Delay) =====
 def post_instagram(video_file, caption):
     print("📤 Preparing to post...")
-    time.sleep(3)  # Give Railway time to finalize the file
+    time.sleep(3)  # Allow Railway to finalize the file
     if not os.path.exists(video_file):
         print("❌ Video file not found, cannot upload.")
         exit()
