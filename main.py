@@ -53,7 +53,7 @@ def generate_music():
         f.write(r.content)
     print(f"✅ Music saved: {MUSIC_FILE}")
 
-# ===== CREATE VIDEO =====
+# ===== CREATE VIDEO (FIXED ENCODING) =====
 def create_video():
     print("🎬 Creating video...")
     cmd = [
@@ -61,15 +61,21 @@ def create_video():
         "-loop", "1",
         "-i", IMAGE_FILE,
         "-i", MUSIC_FILE,
-        "-vf", "zoompan=z='zoom+0.001':d=125,format=yuv420p",
+        "-vf", "scale=720:1280,zoompan=z='zoom+0.001':d=125,format=yuv420p",
         "-t", "15",
+        "-c:v", "libx264",
+        "-preset", "fast",
         "-pix_fmt", "yuv420p",
         VIDEO_FILE
     ]
     subprocess.run(cmd)
-    print(f"✅ Video created: {VIDEO_FILE}")
+    if os.path.exists(VIDEO_FILE):
+        print(f"✅ Video created: {VIDEO_FILE}")
+    else:
+        print("❌ Video was not created properly.")
+        exit()
 
-# ===== CAPTION + HASHTAG GENERATION (IMPROVED) =====
+# ===== CAPTION + HASHTAG GENERATION =====
 def generate_caption():
     captions = [
         "i talk to the moon because you stopped listening",
@@ -86,8 +92,13 @@ def generate_caption():
     ]
     return random.choice(captions) + "\n\n" + " ".join(random.sample(hashtags, 6))
 
-# ===== POST TO INSTAGRAM =====
+# ===== POST TO INSTAGRAM (CHECK + DELAY) =====
 def post_instagram(video_file, caption):
+    print("📤 Preparing to post...")
+    time.sleep(3)  # Give Railway time to finalize the file
+    if not os.path.exists(video_file):
+        print("❌ Video file not found, cannot upload.")
+        exit()
     print("📤 Posting to Instagram...")
     cl.clip_upload(video_file, caption)
     print("✅ Post published successfully!")
