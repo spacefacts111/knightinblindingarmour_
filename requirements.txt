@@ -1,3 +1,4 @@
 instagrapi
 requests
 ffmpeg-python
+moviepy
