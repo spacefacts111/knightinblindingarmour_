@@ -1,137 +1,141 @@
 import os
 import time
-import json
-import subprocess
 import random
+import json
 import requests
+from datetime import datetime, timedelta
 from instagrapi import Client
-from PIL import Image
+from playwright.sync_api import sync_playwright
 
-# ===== CONFIG =====
-VIDEO_FILE = "final_video.mp4"
-IMAGE_FILE = "ai_image.jpg"
-MUSIC_FILE = "ai_music.mp3"
-POST_SCHEDULE = 86400  # 1 post every 24 hours
+SESSION_FILE = "session.json"
+LOCK_FILE = "last_post.json"
+COOKIES_FILE = "cookies.json"
+USERNAME = os.getenv("IG_USERNAME")
+PASSWORD = os.getenv("IG_PASSWORD")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-cl = Client()
-
-# ===== LOGIN (COOKIES ONLY) =====
-def ig_login():
-    if os.path.exists("session.json"):
-        print("✅ Loading Instagram session from cookies...")
-        with open("session.json", "r") as f:
-            cookies = json.load(f)
-        try:
-            cl.login_by_sessionid(cookies["sessionid"])
-            print("✅ Session loaded successfully! (No login challenge)")
-        except Exception as e:
-            print(f"❌ Failed to load session: {e}")
-            exit()
-    else:
-        print("❌ No session.json found! Create one with your IG cookies.")
-        exit()
-
-# ===== FETCH & FIX SAD/POETIC IMAGE =====
-def generate_image():
-    print("🎨 Fetching image...")
-    keywords = ["sad", "poetic", "love", "lonely", "heartbreak", "rain"]
-    query = random.choice(keywords)
-    url = f"https://source.unsplash.com/1080x1920/?{query}"
-    r = requests.get(url, stream=True)
-    temp_file = "temp_image.jpg"
-    with open(temp_file, "wb") as f:
-        for chunk in r.iter_content(1024):
-            f.write(chunk)
-
-    # ✅ Re-save as proper RGB JPEG
-    try:
-        img = Image.open(temp_file).convert("RGB")
-        img.save(IMAGE_FILE, "JPEG")
-        os.remove(temp_file)
-        print(f"✅ Cleaned & saved image: {IMAGE_FILE}")
-    except Exception as e:
-        print(f"❌ Image processing failed: {e}")
-        exit()
-
-# ===== MUSIC DOWNLOAD =====
-def generate_music():
-    print("🎵 Downloading music...")
-    url = random.choice([
-        "https://cdn.pixabay.com/download/audio/2023/01/26/audio_d29cb9bce2.mp3",
-        "https://cdn.pixabay.com/download/audio/2023/01/27/audio_37c6f542b1.mp3"
+def generate_ai_caption():
+    prompt = (
+        "Write a short, hard-hitting, sad or metaphorical quote that feels viral and relatable. "
+        "Mix 60% heartbreak truths, 30% poetic metaphors, 10% thought-provoking questions. "
+        "Max 15 words."
+    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GOOGLE_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    r = requests.post(url, json=payload)
+    if r.status_code == 200:
+        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    return random.choice([
+        "Some things hurt more in silence.",
+        "Rain hides my tears but not my pain."
     ])
-    r = requests.get(url)
-    with open(MUSIC_FILE, "wb") as f:
-        f.write(r.content)
-    print(f"✅ Music saved: {MUSIC_FILE}")
 
-# ===== CREATE VIDEO (FFmpeg Fixed) =====
-def create_video():
-    print("🎬 Creating video...")
-    cmd = [
-        "ffmpeg", "-y",
-        "-loop", "1",
-        "-i", IMAGE_FILE,
-        "-i", MUSIC_FILE,
-        "-vf", "scale=720:1280,zoompan=z='zoom+0.001':d=125,format=yuv420p",
-        "-t", "15",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-pix_fmt", "yuv420p",
-        VIDEO_FILE
-    ]
-    subprocess.run(cmd)
-    if os.path.exists(VIDEO_FILE):
-        print(f"✅ Video created: {VIDEO_FILE}")
-    else:
-        print("❌ Video was not created properly.")
-        exit()
+def generate_ai_hashtags(caption):
+    prompt = (
+        f"Generate 8 to 12 Instagram hashtags for this caption: '{caption}'. "
+        "Mix sad, poetic, relatable hashtags with 2-3 trending ones like #viral #fyp. "
+        "Only return hashtags separated by spaces."
+    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GOOGLE_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    r = requests.post(url, json=payload)
+    if r.status_code == 200:
+        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    return "#sad #brokenhearts #viral #fyp #poetry"
 
-# ===== CAPTION + HASHTAG GENERATION =====
-def generate_caption():
-    captions = [
-        "i talk to the moon because you stopped listening",
-        "hearts don’t break, they just keep beating with cracks inside",
-        "sometimes loving means letting go, even if it kills you",
-        "your ghost sleeps in my bed and i still make room for it",
-        "the nights feel longer when you miss someone you can’t have",
-        "she left, but her perfume stayed in my lungs",
-        "his smile was the saddest thing i ever loved"
-    ]
-    hashtags = [
-        "#sadquotes", "#brokenhearts", "#poetic", "#lonely", "#lovehurts",
-        "#deepsadness", "#romanticvibes", "#heartbreak", "#lostlove", "#relatable"
-    ]
-    return random.choice(captions) + "\n\n" + " ".join(random.sample(hashtags, 6))
+def generate_veo3_video(prompt):
+    print(f"🎬 Generating Veo3 video for: {prompt}")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context()
+        if os.path.exists(COOKIES_FILE):
+            cookies = json.load(open(COOKIES_FILE))
+            context.add_cookies(cookies)
+        page = context.new_page()
+        page.goto("https://gemini.google.com/app/veo")
+        time.sleep(5)
+        page.fill("textarea", prompt)
+        page.keyboard.press("Enter")
+        print("⏳ Waiting for video generation...")
+        for i in range(60):
+            video_el = page.query_selector("video")
+            if video_el:
+                break
+            time.sleep(5)
+        video_el = page.query_selector("video")
+        if not video_el:
+            raise Exception("❌ Video generation failed (no video element found).")
+        video_url = video_el.get_attribute("src")
+        filename = "veo3_clip.mp4"
+        r = requests.get(video_url)
+        with open(filename, "wb") as f:
+            f.write(r.content)
+        print(f"✅ Video saved: {filename}")
+        browser.close()
+        return filename
 
-# ===== POST TO INSTAGRAM (Check + Delay) =====
-def post_instagram(video_file, caption):
-    print("📤 Preparing to post...")
-    time.sleep(3)  # Allow Railway to finalize the file
-    if not os.path.exists(video_file):
-        print("❌ Video file not found, cannot upload.")
-        exit()
-    print("📤 Posting to Instagram...")
-    cl.clip_upload(video_file, caption)
-    print("✅ Post published successfully!")
+def upload_instagram_reel(video_path, caption):
+    print("📤 Uploading to Instagram...")
+    cl = Client()
+    if os.path.exists(SESSION_FILE):
+        try:
+            cl.load_settings(SESSION_FILE)
+            cl.get_timeline_feed()
+            print("✅ Logged in with saved session.")
+        except:
+            os.remove(SESSION_FILE)
+            print("⚠️ Session corrupted, regenerating...")
+    if not os.path.exists(SESSION_FILE):
+        cl.login(USERNAME, PASSWORD)
+        cl.dump_settings(SESSION_FILE)
+        print("✅ New session saved.")
+    cl.clip_upload(video_path, caption)
+    print("✅ Reel uploaded successfully!")
+    if os.path.exists(video_path):
+        os.remove(video_path)
+        print(f"🗑 Deleted {video_path} to save space.")
 
-# ===== BOT LOGIC =====
-def run_once():
-    generate_image()
-    generate_music()
-    create_video()
-    caption = generate_caption()
-    post_instagram(VIDEO_FILE, caption)
+def can_post_now():
+    if not os.path.exists(LOCK_FILE):
+        return True
+    try:
+        with open(LOCK_FILE, "r") as f:
+            data = json.load(f)
+        last_time = datetime.fromisoformat(data.get("last_post"))
+        return datetime.now() - last_time > timedelta(hours=6)
+    except:
+        return True
 
-def run_forever():
+def update_last_post_time():
+    with open(LOCK_FILE, "w") as f:
+        json.dump({"last_post": datetime.now().isoformat()}, f)
+
+def run_bot():
+    if can_post_now():
+        caption = generate_ai_caption()
+        caption += "\n" + generate_ai_hashtags(caption)
+        video = generate_veo3_video(caption)
+        upload_instagram_reel(video, caption)
+        update_last_post_time()
+    print("⏳ Starting daily schedule...")
     while True:
-        run_once()
-        print("⏳ Waiting for next scheduled post...")
-        time.sleep(POST_SCHEDULE)
+        posts_today = random.randint(1, 3)
+        post_times = sorted([
+            datetime.now() + timedelta(hours=random.randint(1, 12))
+            for _ in range(posts_today)
+        ])
+        for t in post_times:
+            wait = (t - datetime.now()).total_seconds()
+            if wait > 0:
+                print(f"⏳ Waiting until {t.strftime('%H:%M:%S')} for next post...")
+                time.sleep(wait)
+            caption = generate_ai_caption()
+            caption += "\n" + generate_ai_hashtags(caption)
+            video = generate_veo3_video(caption)
+            upload_instagram_reel(video, caption)
+            update_last_post_time()
+        print("✅ Finished today's posts. Waiting for tomorrow...")
+        time.sleep(86400)
 
 if __name__ == "__main__":
-    ig_login()
-    print("🚀 Running one-time test post immediately...")
-    run_once()
-    print("✅ Test post complete! Switching to daily auto-posting...")
-    run_forever()
+    run_bot()
